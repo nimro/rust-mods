@@ -3,7 +3,7 @@
 namespace Oxide.Plugins
 {
     [Info("Murder Chickens", "nimro", "1.0.0")]
-    [Description("Ultra-agressive and strong murder chickens. Most effective in groups of 1.")]
+    [Description("Ultra-agressive and strong murder chickens.")]
     public class MurderChickens : RustPlugin
     {
         /* Base stats */
