@@ -110,7 +110,7 @@ namespace Oxide.Plugins
                 BasePlayer lootee = entity.ToPlayer();
                 moderators.ForEach(m => SendMessage(m, $"{looter.displayName} ({looter.userID}) started looting player {lootee.displayName} ({lootee.userID}).\nItems on body: \n{GetStorageItemsList(loot)}"));
             }
-            else if (looter.userID != entity.OwnerID) // don't report if the player opens their own stuff
+            else if (entity.OwnerID != 0ul && looter.userID != entity.OwnerID) // don't report if owner is zero (world items) or if the player opens their own stuff
             {
                 moderators.ForEach(m => SendMessage(m, $"{looter.displayName} ({looter.userID}) started looting {entity.ShortPrefabName} belonging to {entity.OwnerID}.\nItems in container: \n{GetStorageItemsList(loot)}"));
             }
@@ -137,7 +137,7 @@ namespace Oxide.Plugins
                 BasePlayer lootee = entity.ToPlayer();
                 moderators.ForEach(m => SendMessage(m, $"{looter.displayName} ({looter.userID}) finshed looting player {lootee.displayName} ({lootee.userID}).\nItems left on body: \n{GetStorageItemsList(loot)}"));
             }
-            else if (looter.userID != entity.OwnerID) // don't report if the player opens their own stuff
+            else if (entity.OwnerID != 0ul && looter.userID != entity.OwnerID) // don't report if owner is zero (world items) or if the player opens their own stuff
             {
                 moderators.ForEach(m => SendMessage(m, $"{looter.displayName} ({looter.userID}) finished looting {entity.ShortPrefabName} belonging to {entity.OwnerID}.\nItems left in container: \n{GetStorageItemsList(loot)}"));
             }
