@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace Oxide.Plugins
 {
-    [Info("Zoned Crate Hack Timer", "nimro", "1.0.0")]
+    [Info("Zoned Crate Hack Timer", "nimro", "1.1.0")]
     [Description("Set custom timer reductions on hackable crates, by ZoneManager zone")]
     public class ZonedCrateHackTimer : RustPlugin
     {
@@ -18,14 +18,15 @@ namespace Oxide.Plugins
          * 
          * To configure the plugin, create (or alter the default) config in the following format:
          *  {
+         *      "IfConflictChoose": "lowest", // "lowest" or "highest"
          *      "ZoneTimerConfigs": [
          *           {
          *               "ZoneID": "a-zone",
-         *               "TimerReductionSeconds": 123
+         *               "TimerIncreaseSeconds": 123
          *           },
          *           {
          *               "ZoneID": "b-zone",
-         *               "TimerReductionSeconds": 234
+         *               "TimerIncreaseSeconds": 234
          *           }
          *      ]
          *  }
@@ -41,11 +42,17 @@ namespace Oxide.Plugins
         private class ZoneTimerSetting
         {
             public string ZoneID { get; set; }
-            public int TimerReductionSeconds { get; set; }
+            public int TimerIncreaseSeconds { get; set; }
         }
 
         private class ZoneTimerConfig
         {
+            private string _IfConflictChoose;
+            public string IfConflictChoose
+            {
+                get => _IfConflictChoose ?? "lowest";
+                set => _IfConflictChoose = value ?? "lowest";
+            }
             public List<ZoneTimerSetting> ZoneTimerConfigs { get; set; }
         }
 
@@ -60,6 +67,7 @@ namespace Oxide.Plugins
             Puts($"Creating new empty {nameof(ZonedCrateHackTimer)} config");
             ZoneTimerConfig defaultConfig = new ZoneTimerConfig
             {
+                IfConflictChoose = "lowest",
                 ZoneTimerConfigs = new List<ZoneTimerSetting>()
             };
             SaveConfig(defaultConfig);
@@ -96,14 +104,16 @@ namespace Oxide.Plugins
                 return;
             }
 
-            ZoneTimerSetting mostApplicableConfig = applicableConfigs.OrderByDescending(cfg => cfg.TimerReductionSeconds).First();
-            float timeRemaining = HackableLockedCrate.requiredHackSeconds - mostApplicableConfig.TimerReductionSeconds;
+            ZoneTimerSetting mostApplicableConfig = config.IfConflictChoose == "highest"
+                ? applicableConfigs.OrderByDescending(cfg => cfg.TimerIncreaseSeconds).First()
+                : applicableConfigs.OrderBy(cfg => cfg.TimerIncreaseSeconds).First();
+            float timeRemaining = HackableLockedCrate.requiredHackSeconds + mostApplicableConfig.TimerIncreaseSeconds;
             timeRemaining = timeRemaining < 0 ? 0 : timeRemaining;
 
             Puts($"Hackable crate is in zone '{mostApplicableConfig.ZoneID}'. " +
                 $"Reducing timer from {HackableLockedCrate.requiredHackSeconds} to {timeRemaining}");
             // The underlying code unlocks the crate once hackSeconds > requiredHackSeconds
-            crate.hackSeconds = mostApplicableConfig.TimerReductionSeconds;
+            crate.hackSeconds = mostApplicableConfig.TimerIncreaseSeconds * -1;
         }
 
         void OnServerInitialized()
