@@ -7,6 +7,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Murder Chickens", "murder-c
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LooterSpy", "LooterSpy\LooterSpy.csproj", "{B465148D-310E-4278-9183-D8E7D03B44D1}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CustomCrateHackingTimer", "CustomCrateHackingTimer\CustomCrateHackingTimer.csproj", "{BE5EAD9A-F2BB-47A2-AF6C-813ED05F5E62}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -21,6 +23,10 @@ Global
 		{B465148D-310E-4278-9183-D8E7D03B44D1}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{B465148D-310E-4278-9183-D8E7D03B44D1}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{B465148D-310E-4278-9183-D8E7D03B44D1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BE5EAD9A-F2BB-47A2-AF6C-813ED05F5E62}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BE5EAD9A-F2BB-47A2-AF6C-813ED05F5E62}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BE5EAD9A-F2BB-47A2-AF6C-813ED05F5E62}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BE5EAD9A-F2BB-47A2-AF6C-813ED05F5E62}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
