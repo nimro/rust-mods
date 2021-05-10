@@ -6,7 +6,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("Looter Spy", "nimro", "1.0.0")]
+    [Info("Looter Spy", "nimro", "1.1.0")]
     [Description("Selectively monitor players looting containers to ensure they don't steal.")]
     public class LooterSpy : RustPlugin
     {
@@ -102,17 +102,27 @@ namespace Oxide.Plugins
                 return;
             }
 
-            var loot = entity.GetComponent<StorageContainer>();
-            List<BasePlayer> moderators = monitoredPlayers.looterMonitors.Where(lm => lm.LooterID == looter.userID).Select(lm => BasePlayer.FindByID(lm.ModeratorID)).ToList();
-
             if (entity is BasePlayer)
             {
                 BasePlayer lootee = entity.ToPlayer();
-                moderators.ForEach(m => SendMessage(m, $"{looter.displayName} ({looter.userID}) started looting player {lootee.displayName} ({lootee.userID}).\nItems on body: \n{GetStorageItemsList(loot)}"));
+                string items = "";
+                int totalItems = 0;
+                foreach (ItemContainer container in lootee.inventory.loot.containers)
+                {
+                    items += GetStorageItemsList(container);
+                    items += "\n";
+                    totalItems += container.itemList.Select(i => i.amount).Sum();
+                }
+                GetWatchingModerators(looter.userID).ForEach(m => SendMessage(m,
+                    $"{looter.displayName} ({looter.userID}) started looting player {lootee.displayName} ({lootee.userID})." +
+                    $"\n{totalItems} Items on body: \n{items}"));
             }
             else if (entity.OwnerID != 0ul && looter.userID != entity.OwnerID) // don't report if owner is zero (world items) or if the player opens their own stuff
             {
-                moderators.ForEach(m => SendMessage(m, $"{looter.displayName} ({looter.userID}) started looting {entity.ShortPrefabName} belonging to {entity.OwnerID}.\nItems in container: \n{GetStorageItemsList(loot)}"));
+                var loot = entity.GetComponent<StorageContainer>().inventory;
+                GetWatchingModerators(looter.userID).ForEach(m => SendMessage(m,
+                    $"{looter.displayName} ({looter.userID}) started looting {entity.ShortPrefabName} belonging to {entity.OwnerID}." +
+                    $"\n{loot.itemList.Select(i => i.amount).Sum()} Items in container: \n{GetStorageItemsList(loot)}"));
             }
         }
 
@@ -129,17 +139,27 @@ namespace Oxide.Plugins
                 return;
             }
 
-            var loot = entity.GetComponent<StorageContainer>();
-            List<BasePlayer> moderators = monitoredPlayers.looterMonitors.Where(lm => lm.LooterID == looter.userID).Select(lm => BasePlayer.FindByID(lm.ModeratorID)).ToList();
-
             if (entity is BasePlayer)
             {
                 BasePlayer lootee = entity.ToPlayer();
-                moderators.ForEach(m => SendMessage(m, $"{looter.displayName} ({looter.userID}) finshed looting player {lootee.displayName} ({lootee.userID}).\nItems left on body: \n{GetStorageItemsList(loot)}"));
+                string items = "";
+                int totalItems = 0;
+                foreach (ItemContainer container in lootee.inventory.loot.containers)
+                {
+                    items += GetStorageItemsList(container);
+                    items += "\n";
+                    totalItems += container.itemList.Select(i => i.amount).Sum();
+                }
+                GetWatchingModerators(looter.userID).ForEach(m => SendMessage(m,
+                    $"{looter.displayName} ({looter.userID}) finished looting player {lootee.displayName} ({lootee.userID})." +
+                    $"\n{totalItems} Items left on body: \n{items}"));
             }
             else if (entity.OwnerID != 0ul && looter.userID != entity.OwnerID) // don't report if owner is zero (world items) or if the player opens their own stuff
             {
-                moderators.ForEach(m => SendMessage(m, $"{looter.displayName} ({looter.userID}) finished looting {entity.ShortPrefabName} belonging to {entity.OwnerID}.\nItems left in container: \n{GetStorageItemsList(loot)}"));
+                var loot = entity.GetComponent<StorageContainer>().inventory;
+                GetWatchingModerators(looter.userID).ForEach(m => SendMessage(m,
+                    $"{looter.displayName} ({looter.userID}) finished looting {entity.ShortPrefabName} belonging to {entity.OwnerID}." +
+                    $"\n{loot.itemList.Select(i => i.amount).Sum()} Items left in container: \n{GetStorageItemsList(loot)}"));
             }
         }
         #endregion Hooks
@@ -216,10 +236,10 @@ namespace Oxide.Plugins
         #endregion Config
 
         #region Helpers
-        private string GetStorageItemsList(StorageContainer container)
+        private string GetStorageItemsList(ItemContainer container)
         {
             StringBuilder sb = new StringBuilder();
-            container.inventory.itemList
+            container.itemList
                 .OrderBy(item => item.info.displayName.translated).ToList()
                 .ForEach(item => sb.AppendLine($"Item: {item.info.displayName.translated} x{item.amount}"));
             return sb.ToString();
@@ -239,6 +259,12 @@ namespace Oxide.Plugins
             }
             else Puts(message);
         }
+
+        private List<BasePlayer> GetWatchingModerators(ulong looterUserId) =>
+            monitoredPlayers.looterMonitors
+                .Where(lm => lm.LooterID == looterUserId)
+                .Select(lm => BasePlayer.FindByID(lm.ModeratorID))
+                .ToList();
         #endregion Helpers
     }
 }
