@@ -6,7 +6,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("Looter Spy", "nimro", "1.1.0")]
+    [Info("Looter Spy", "nimro", "1.1.1")]
     [Description("Selectively monitor players looting containers to ensure they don't steal.")]
     public class LooterSpy : RustPlugin
     {
@@ -107,7 +107,22 @@ namespace Oxide.Plugins
                 BasePlayer lootee = entity.ToPlayer();
                 string items = "";
                 int totalItems = 0;
-                foreach (ItemContainer container in lootee.inventory.loot.containers)
+                if (lootee.inventory.containerWear == null
+                    || lootee.inventory.containerBelt == null
+                    || lootee.inventory.containerMain == null)
+                {
+                    Puts("Looting player with null inventory, aborting");
+                    return;
+                }
+
+                List<ItemContainer> containers = new List<ItemContainer>
+                {
+                    lootee.inventory.containerWear,
+                    lootee.inventory.containerBelt,
+                    lootee.inventory.containerMain
+                };
+
+                foreach (ItemContainer container in containers)
                 {
                     items += GetStorageItemsList(container);
                     items += "\n";
@@ -144,7 +159,22 @@ namespace Oxide.Plugins
                 BasePlayer lootee = entity.ToPlayer();
                 string items = "";
                 int totalItems = 0;
-                foreach (ItemContainer container in lootee.inventory.loot.containers)
+                if (lootee.inventory.containerWear == null
+                    || lootee.inventory.containerBelt == null
+                    || lootee.inventory.containerMain == null)
+                {
+                    Puts("Looting player with null inventory, aborting");
+                    return;
+                }
+
+                List<ItemContainer> containers = new List<ItemContainer>
+                {
+                    lootee.inventory.containerWear,
+                    lootee.inventory.containerBelt,
+                    lootee.inventory.containerMain
+                };
+
+                foreach (ItemContainer container in containers)
                 {
                     items += GetStorageItemsList(container);
                     items += "\n";
