@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace Oxide.Plugins
 {
-    [Info("Zoned Crate Hack Timer", "nimro", "1.1.0")]
+    [Info("Zoned Crate Hack Timer", "nimro", "1.1.1")]
     [Description("Set custom timer reductions on hackable crates, by ZoneManager zone")]
     public class ZonedCrateHackTimer : RustPlugin
     {
@@ -50,8 +50,8 @@ namespace Oxide.Plugins
             private string _IfConflictChoose;
             public string IfConflictChoose
             {
-                get => _IfConflictChoose ?? "lowest";
-                set => _IfConflictChoose = value ?? "lowest";
+                get { return _IfConflictChoose ?? "lowest"; }
+                set { _IfConflictChoose = value ?? "lowest"; }
             }
             public List<ZoneTimerSetting> ZoneTimerConfigs { get; set; }
         }
