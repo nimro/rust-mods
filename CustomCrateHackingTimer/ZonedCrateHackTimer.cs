@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace Oxide.Plugins
 {
-    [Info("Zoned Crate Hack Timer", "nimro", "1.1.1")]
+    [Info("Zoned Crate Hack Timer", "nimro", "1.1.2")]
     [Description("Set custom timer reductions on hackable crates, by ZoneManager zone")]
     public class ZonedCrateHackTimer : RustPlugin
     {
@@ -34,6 +34,7 @@ namespace Oxide.Plugins
 
         private ZoneTimerConfig config;
         private static ZonedCrateHackTimer ins;
+        private const string CARGO_ZONE_ID = "cargo_ship";
 
         [PluginReference]
         private Plugin ZoneManager;
@@ -69,6 +70,7 @@ namespace Oxide.Plugins
             {
                 IfConflictChoose = "lowest",
                 ZoneTimerConfigs = new List<ZoneTimerSetting>()
+
             };
             SaveConfig(defaultConfig);
         }
@@ -86,10 +88,24 @@ namespace Oxide.Plugins
                 return;
             }
 
-            string[] crateZones = ZoneManager?.Call<string[]>("GetEntityZoneIDs", crate);
+            List<string> crateZones = ZoneManager?.Call<string[]>("GetEntityZoneIDs", crate).ToList();
+
             LoadVariables();
 
-            if (crateZones == null || crateZones.Length == 0 || config == null)
+            if (crate.GetParentEntity() != null)
+            {
+                if (crate.GetParentEntity() is CargoShip)
+                {
+                    Puts($"Crate parent is CargoShip, so adding '{CARGO_ZONE_ID}' to the list of zones");
+                    crateZones.Append(CARGO_ZONE_ID);
+                }
+                else
+                {
+                    Puts($"Crate parent is '{crate.GetParentEntity()}'");
+                }
+            }
+
+            if (crateZones == null || crateZones.Count == 0 || config == null)
             {
                 Puts($"Hackable crate not in any zones, using default timer of {HackableLockedCrate.requiredHackSeconds}");
                 return;
