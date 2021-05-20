@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace Oxide.Plugins
 {
-    [Info("Zoned Crate Hack Timer", "nimro", "1.2.0")]
+    [Info("Zoned Crate Hack Timer", "nimro", "1.2.1")]
     [Description("Set custom timer reductions on hackable crates, by ZoneManager zone")]
     public class ZonedCrateHackTimer : RustPlugin
     {
@@ -88,7 +88,7 @@ namespace Oxide.Plugins
                 return;
             }
 
-            List<string> crateZones = ZoneManager?.Call<string[]>("GetEntityZoneIDs", crate).ToList();
+            List<string> crateZones = ZoneManager?.Call<string[]>("GetEntityZoneIDs", crate)?.ToList() ?? new List<string>();
 
             LoadVariables();
 
@@ -97,7 +97,7 @@ namespace Oxide.Plugins
                 if (crate.GetParentEntity() is CargoShip)
                 {
                     Puts($"Crate parent is CargoShip, so adding '{CARGO_ZONE_ID}' to the list of zones");
-                    crateZones.Append(CARGO_ZONE_ID);
+                    crateZones.Add(CARGO_ZONE_ID);
                 }
                 else
                 {
