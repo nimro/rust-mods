@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace Oxide.Plugins
 {
-    [Info("Zoned Crate Hack Timer", "nimro", "1.2.1")]
+    [Info("Zoned Crate Hack Timer", "nimro", "2.0.0")]
     [Description("Set custom timer reductions on hackable crates, by ZoneManager zone")]
     public class ZonedCrateHackTimer : RustPlugin
     {
@@ -43,7 +43,7 @@ namespace Oxide.Plugins
         private class ZoneTimerSetting
         {
             public string ZoneID { get; set; }
-            public int TimerIncreaseSeconds { get; set; }
+            public float TimerSeconds { get; set; }
         }
 
         private class ZoneTimerConfig
@@ -70,6 +70,13 @@ namespace Oxide.Plugins
             {
                 IfConflictChoose = "lowest",
                 ZoneTimerConfigs = new List<ZoneTimerSetting>()
+                {
+                    new ZoneTimerSetting()
+                    {
+                        ZoneID = "none",
+                        TimerSeconds = 0
+                    }
+                }
 
             };
             SaveConfig(defaultConfig);
@@ -88,9 +95,15 @@ namespace Oxide.Plugins
                 return;
             }
 
+            float hackDiff = 0;
             List<string> crateZones = ZoneManager?.Call<string[]>("GetEntityZoneIDs", crate)?.ToList() ?? new List<string>();
 
             LoadVariables();
+
+            var noneTimer = config.ZoneTimerConfigs
+                .Where(ztc => ztc.ZoneID == "none")
+                .DefaultIfEmpty(new ZoneTimerSetting() { ZoneID = "none", TimerSeconds = HackableLockedCrate.requiredHackSeconds })
+                .FirstOrDefault();
 
             if (crate.GetParentEntity() != null)
             {
@@ -107,7 +120,9 @@ namespace Oxide.Plugins
 
             if (crateZones == null || crateZones.Count == 0 || config == null)
             {
-                Puts($"Hackable crate not in any zones, using default timer of {HackableLockedCrate.requiredHackSeconds}");
+                Puts($"Hackable crate not in any zones, using 'none' timer of {noneTimer.TimerSeconds}");
+                hackDiff = HackableLockedCrate.requiredHackSeconds - noneTimer.TimerSeconds;
+                crate.hackSeconds = hackDiff;
                 return;
             }
 
@@ -116,20 +131,23 @@ namespace Oxide.Plugins
             if (applicableConfigs.Count == 0)
             {
                 Puts($"No configured timer reduction for any of this hackable crate's zones ({string.Join(", ", crateZones)}). " +
-                    $"Using default timer of {HackableLockedCrate.requiredHackSeconds}");
+                    $"Using 'none' timer of {noneTimer.TimerSeconds}");
+                hackDiff = HackableLockedCrate.requiredHackSeconds - noneTimer.TimerSeconds;
+                crate.hackSeconds = hackDiff;
                 return;
             }
 
             ZoneTimerSetting mostApplicableConfig = config.IfConflictChoose == "highest"
-                ? applicableConfigs.OrderByDescending(cfg => cfg.TimerIncreaseSeconds).First()
-                : applicableConfigs.OrderBy(cfg => cfg.TimerIncreaseSeconds).First();
-            float timeRemaining = HackableLockedCrate.requiredHackSeconds + mostApplicableConfig.TimerIncreaseSeconds;
+                ? applicableConfigs.OrderByDescending(cfg => cfg.TimerSeconds).First()
+                : applicableConfigs.OrderBy(cfg => cfg.TimerSeconds).First();
+            float timeRemaining = mostApplicableConfig.TimerSeconds;
             timeRemaining = timeRemaining < 0 ? 0 : timeRemaining;
 
             Puts($"Hackable crate is in zone '{mostApplicableConfig.ZoneID}'. " +
-                $"Reducing timer from {HackableLockedCrate.requiredHackSeconds} to {timeRemaining}");
+                $"Changing timer from {HackableLockedCrate.requiredHackSeconds} to {timeRemaining}");
             // The underlying code unlocks the crate once hackSeconds > requiredHackSeconds
-            crate.hackSeconds = mostApplicableConfig.TimerIncreaseSeconds * -1;
+            hackDiff = HackableLockedCrate.requiredHackSeconds - mostApplicableConfig.TimerSeconds;
+            crate.hackSeconds = hackDiff;
         }
 
         void OnServerInitialized()
