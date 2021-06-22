@@ -135,8 +135,19 @@ namespace Oxide.Plugins
             else if (entity.OwnerID != 0ul && looter.userID != entity.OwnerID) // don't report if owner is zero (world items) or if the player opens their own stuff
             {
                 var loot = entity.GetComponent<StorageContainer>().inventory;
+                BasePlayer owner = BasePlayer.FindByID(entity.OwnerID);
+                string ownerinfo = "";
+                if (owner != null)
+                {
+                    ownerinfo = $"{owner.displayName} ({entity.OwnerID})";
+                }
+                else
+                {
+                    ownerinfo = entity.OwnerID.ToString();
+                }
+
                 GetWatchingModerators(looter.userID).ForEach(m => SendMessage(m,
-                    $"{looter.displayName} ({looter.userID}) started looting {entity.ShortPrefabName} belonging to {entity.OwnerID}." +
+                    $"{looter.displayName} ({looter.userID}) started looting {entity.PrefabName} belonging to {ownerinfo}." +
                     $"\n{loot.itemList.Select(i => i.amount).Sum()} Items in container: \n{GetStorageItemsList(loot)}"));
             }
         }
@@ -187,8 +198,19 @@ namespace Oxide.Plugins
             else if (entity.OwnerID != 0ul && looter.userID != entity.OwnerID) // don't report if owner is zero (world items) or if the player opens their own stuff
             {
                 var loot = entity.GetComponent<StorageContainer>().inventory;
+                BasePlayer owner = BasePlayer.FindByID(entity.OwnerID);
+                string ownerinfo = "";
+                if (owner != null)
+                {
+                    ownerinfo = $"{owner.displayName} ({entity.OwnerID})";
+                }
+                else
+                {
+                    ownerinfo = entity.OwnerID.ToString();
+                }
+
                 GetWatchingModerators(looter.userID).ForEach(m => SendMessage(m,
-                    $"{looter.displayName} ({looter.userID}) finished looting {entity.ShortPrefabName} belonging to {entity.OwnerID}." +
+                    $"{looter.displayName} ({looter.userID}) finished looting {entity.PrefabName} belonging to {ownerinfo}." +
                     $"\n{loot.itemList.Select(i => i.amount).Sum()} Items left in container: \n{GetStorageItemsList(loot)}"));
             }
         }
