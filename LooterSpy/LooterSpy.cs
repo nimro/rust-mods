@@ -309,7 +309,6 @@ namespace Oxide.Plugins
                     message = string.Format(message, args);
                 SendReply(player, $"{message}");
             }
-            else Puts(message);
         }
 
         private List<BasePlayer> GetWatchingModerators(ulong looterUserId) =>
