@@ -6,7 +6,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("Looter Spy", "nimro", "1.3.0")]
+    [Info("Looter Spy", "nimro", "2.0.0")]
     [Description("Selectively monitor players looting containers to ensure they don't steal.")]
     public class LooterSpy : RustPlugin
     {
@@ -14,6 +14,14 @@ namespace Oxide.Plugins
         private const string PERMISSION_ENABLE_LOOTERSPY = "looterspy.use";
         private static LooterSpy ins;
         private MonitorConfig config;
+        private Starts starts;
+
+        #region Types
+        private class Starts
+        {
+            public Hash<ulong, List<Item>> items = new Hash<ulong, List<Item>>();
+        }
+        #endregion Types
 
         #region Commands
         [ChatCommand(COMMAND)]
@@ -39,6 +47,8 @@ namespace Oxide.Plugins
                     return;
                 }
 
+                var looter = BasePlayer.FindByID(looterId);
+
                 LoadVariables();
                 MonitorTuple requestedMonitor = new MonitorTuple(looterId, player.userID);
                 if (args[0] == "enable")
@@ -48,7 +58,7 @@ namespace Oxide.Plugins
                         config.looterMonitors.Add(requestedMonitor);
                         SaveConfig(config);
                     }
-                    Puts($"LooterSpy enabled for {looterId} by {player.displayName} ({player.userID})");
+                    Puts($"LooterSpy enabled for {looter.displayName} ({looterId}) by {player.displayName} ({player.userID})");
                     SendMessage(player, $"LooterSpy enabled for {looterId}");
                 }
                 else if (args[0] == "disable")
@@ -58,7 +68,7 @@ namespace Oxide.Plugins
                         config.looterMonitors = config.looterMonitors.Where(lm => lm != requestedMonitor).ToList();
                         SaveConfig(config);
                     }
-                    Puts($"LooterSpy disabled for {looterId} by {player.displayName} ({player.userID})");
+                    Puts($"LooterSpy disabled for {looter.displayName} ({looterId}) by {player.displayName} ({player.userID})");
                     SendMessage(player, $"LooterSpy disabled for {looterId}");
                 }
                 else
@@ -76,17 +86,19 @@ namespace Oxide.Plugins
         void Loaded()
         {
             permission.RegisterPermission(PERMISSION_ENABLE_LOOTERSPY, this);
+            starts = new Starts();
+            LoadVariables();
         }
 
         void OnServerInitialized()
         {
             ins = this;
-            LoadDefaultConfig();
         }
 
         private void Unload()
         {
             ins = null;
+            starts = null;
         }
 
         void OnLootEntity(BasePlayer looter, BaseEntity entity)
@@ -104,55 +116,18 @@ namespace Oxide.Plugins
 
             if (entity is BasePlayer)
             {
-                BasePlayer lootee = entity.ToPlayer();
-                string items = "";
-                int totalItems = 0;
-                if (lootee.inventory.containerWear == null
-                    || lootee.inventory.containerBelt == null
-                    || lootee.inventory.containerMain == null)
-                {
-                    Puts("Looting player with null inventory, aborting");
-                    return;
-                }
-
-                List<ItemContainer> containers = new List<ItemContainer>
-                {
-                    lootee.inventory.containerWear,
-                    lootee.inventory.containerBelt,
-                    lootee.inventory.containerMain
-                };
-
-                foreach (ItemContainer container in containers)
-                {
-                    items += GetStorageItemsList(container);
-                    items += "\n";
-                    totalItems += container.itemList.Select(i => i.amount).Sum();
-                }
-                GetWatchingModerators(looter.userID).ForEach(m => SendMessage(m,
-                    $"{looter.displayName} ({looter.userID}) started looting player {lootee.displayName} ({lootee.userID})." +
-                    $"\n{totalItems} Items on body: \n{items}"));
+                // OnLootEntityEnd isn't called for BasePlayers so don't record a start
+                // I think this is an oxide bug
+                return;
             }
             else if (entity.OwnerID != 0ul && looter.userID != entity.OwnerID) // don't report if owner is zero (world items) or if the player opens their own stuff
             {
-                var loot = entity.GetComponent<StorageContainer>().inventory;
-                BasePlayer owner = BasePlayer.FindByID(entity.OwnerID);
-                string ownerinfo = "";
-                if (owner != null)
-                {
-                    ownerinfo = $"{owner.displayName} ({entity.OwnerID})";
-                }
-                else
-                {
-                    ownerinfo = entity.OwnerID.ToString();
-                }
-
-                GetWatchingModerators(looter.userID).ForEach(m => SendMessage(m,
-                    $"{looter.displayName} ({looter.userID}) started looting {entity.PrefabName} belonging to {ownerinfo} at {GetGrid(entity.transform.position, true)}." +
-                    $"\n{loot.itemList.Select(i => i.amount).Sum()} Items in container: \n{GetStorageItemsList(loot)}"));
+                starts.items.Remove(looter.userID); // make sure there's not already a started item in here
+                starts.items.Add(looter.userID, entity.GetComponent<StorageContainer>().inventory.itemList.ToList());
             }
         }
 
-        void OnLootEntityEnd(BasePlayer looter, BaseEntity entity)
+        void OnLootEntityEnd(BasePlayer looter, BaseCombatEntity entity)
         {
             if (looter == null || entity == null || !entity.IsValid())
             {
@@ -164,40 +139,29 @@ namespace Oxide.Plugins
             {
                 return;
             }
-
+            
             if (entity is BasePlayer)
             {
-                BasePlayer lootee = entity.ToPlayer();
-                string items = "";
-                int totalItems = 0;
-                if (lootee.inventory.containerWear == null
-                    || lootee.inventory.containerBelt == null
-                    || lootee.inventory.containerMain == null)
-                {
-                    Puts("Looting player with null inventory, aborting");
-                    return;
-                }
-
-                List<ItemContainer> containers = new List<ItemContainer>
-                {
-                    lootee.inventory.containerWear,
-                    lootee.inventory.containerBelt,
-                    lootee.inventory.containerMain
-                };
-
-                foreach (ItemContainer container in containers)
-                {
-                    items += GetStorageItemsList(container);
-                    items += "\n";
-                    totalItems += container.itemList.Select(i => i.amount).Sum();
-                }
-                GetWatchingModerators(looter.userID).ForEach(m => SendMessage(m,
-                    $"{looter.displayName} ({looter.userID}) finished looting player {lootee.displayName} ({lootee.userID})." +
-                    $"\n{totalItems} Items left on body: \n{items}"));
+                Puts("OnLootEntityEnd is working for BasePlayers now! Please tell nimro to update LooterSpy");
+                return;
             }
             else if (entity.OwnerID != 0ul && looter.userID != entity.OwnerID) // don't report if owner is zero (world items) or if the player opens their own stuff
             {
+                if (!starts.items.ContainsKey(looter.userID))
+                {
+                    return;
+                }
                 var loot = entity.GetComponent<StorageContainer>().inventory;
+
+                var diff = GetAddedRemoved(starts.items[looter.userID], new List<ItemContainer>() { loot });
+                var added = diff.Item1;
+                var removed = diff.Item2;
+
+                if (added.Count == 0 && removed.Count == 0)
+                {
+                    return;
+                }
+
                 BasePlayer owner = BasePlayer.FindByID(entity.OwnerID);
                 string ownerinfo = "";
                 if (owner != null)
@@ -209,9 +173,16 @@ namespace Oxide.Plugins
                     ownerinfo = entity.OwnerID.ToString();
                 }
 
-                GetWatchingModerators(looter.userID).ForEach(m => SendMessage(m,
-                    $"{looter.displayName} ({looter.userID}) finished looting {entity.PrefabName} belonging to {ownerinfo} at {GetGrid(entity.transform.position, true)}." +
-                    $"\n{loot.itemList.Select(i => i.amount).Sum()} Items left in container: \n{GetStorageItemsList(loot)}"));
+                string message = $"{looter.displayName} ({looter.userID}) looted {entity.ShortPrefabName}\nbelonging to {ownerinfo}\nat {GetGrid(entity.transform.position, true)}.\n";
+                if (added.Count > 0)
+                {
+                    message += $"\nADDED: \n{GetItemsList(added)}";
+                }
+                if (removed.Count > 0)
+                {
+                    message += $"\nREMOVED: \n{GetItemsList(removed)}";
+                }
+                GetWatchingModerators(looter.userID).ForEach(m => SendMessage(m, message));
             }
         }
         #endregion Hooks
@@ -276,6 +247,7 @@ namespace Oxide.Plugins
 
         protected override void LoadDefaultConfig()
         {
+            Puts("Loading default LooterSpy config");
             MonitorConfig newconfig = new MonitorConfig
             {
                 OffsetYGrid = -1,
@@ -284,7 +256,25 @@ namespace Oxide.Plugins
             SaveConfig(newconfig);
         }
 
-        private void LoadConfigVariables() => config = Config.ReadObject<MonitorConfig>();
+        private void LoadConfigVariables()
+        {
+            try
+            {
+                var loadedConfig = Config.ReadObject<MonitorConfig>();
+                if (loadedConfig == null)
+                {
+                    LoadDefaultConfig();
+                }
+                else
+                {
+                    config = loadedConfig;
+                }
+            }
+            catch
+            {
+                LoadDefaultConfig();
+            }
+        }
 
         private void SaveConfig(MonitorConfig saveconfig) => Config.WriteObject(saveconfig, true);
         #endregion Config
@@ -292,10 +282,24 @@ namespace Oxide.Plugins
         #region Helpers
         private string GetStorageItemsList(ItemContainer container)
         {
+            return GetItemsList(container.itemList);
+        }
+
+        private string GetItemsList(List<Item> items)
+        {
             StringBuilder sb = new StringBuilder();
-            container.itemList
-                .OrderBy(item => item.info.displayName.translated).ToList()
-                .ForEach(item => sb.AppendLine($"Item: {item.info.displayName.translated} x{item.amount}"));
+            items.OrderBy(item => item.info.displayName.translated).ToList()
+                 .ForEach(item => sb.AppendLine($"Item: {item.info.displayName.translated} x{item.amount}"));
+            return sb.ToString();
+        }
+
+        private string GetItemsList(List<ItemTotal> items)
+        {
+            var distinctItems = items.GroupBy(x => new { x.name, x.displayName }, x => x.count, (names, counts) => new ItemTotal(names.name, names.displayName, counts.Sum()));
+
+            StringBuilder sb = new StringBuilder();
+            distinctItems.OrderBy(item => item.displayName).ToList()
+                         .ForEach(item => sb.AppendLine($"Item: {item.displayName} x{item.count}"));
             return sb.ToString();
         }
 
@@ -326,7 +330,7 @@ namespace Oxide.Plugins
         /// <param name="pos"></param>
         /// <param name="addVector"></param>
         /// <returns></returns>
-        string GetGrid(Vector3 pos, bool addVector)
+        private string GetGrid(Vector3 pos, bool addVector)
         {
 
             char letter = 'A';
@@ -341,6 +345,56 @@ namespace Oxide.Plugins
             }
             return grid;
 
+        }
+
+        private struct ItemTotal
+        {
+            public ItemTotal(string Name, string DisplayName, int Count)
+            {
+                name = Name;
+                displayName = DisplayName;
+                count = Count;
+            }
+            public string name { get; }
+            public string displayName { get; }
+            public int count { get; }
+        }
+
+        /// <summary>
+        /// Calculate the difference between two containers
+        /// </summary>
+        /// <param name="start">Item containers present at the start</param>
+        /// <param name="finish">Item containers present at the finish</param>
+        /// <returns>Tuple where Item1 is the items added, and Item2 is the items removed</returns>
+        private Tuple<List<ItemTotal>, List<ItemTotal>> GetAddedRemoved(List<Item> starting, List<ItemContainer> finish)
+        {
+            var added = new List<ItemTotal>();
+            var removed = new List<ItemTotal>();
+
+            var finishing = finish.SelectMany(f => f.itemList).ToList();
+
+            foreach (Item item in starting)
+            {
+                var startCount = starting.Where(s => s.info.name == item.info.name).Select(s => s.amount).Sum();
+                var finishCount = finishing.Where(f => f.info.name == item.info.name).Select(f => f.amount).Sum();
+
+                if (finishCount > startCount)
+                {
+                    added.Add(new ItemTotal(item.info.name, item.info.displayName.translated, finishCount - startCount));
+                }
+                else if (finishCount < startCount)
+                {
+                    removed.Add(new ItemTotal(item.info.name, item.info.displayName.translated, startCount - finishCount));
+                }
+            }
+
+            foreach (Item item in finishing.Where(f => !starting.Select(s => s.info.name).Contains(f.info.name)))
+            {
+                var finishCount = finishing.Where(f => f.info.name == item.info.name).Select(f => f.amount).Sum();
+                added.Add(new ItemTotal(item.info.name, item.info.displayName.translated, finishCount));
+            }
+
+            return new Tuple<List<ItemTotal>, List<ItemTotal>>(added, removed);
         }
         #endregion Helpers
     }
