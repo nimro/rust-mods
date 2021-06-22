@@ -6,14 +6,14 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("Looter Spy", "nimro", "1.2.0")]
+    [Info("Looter Spy", "nimro", "1.3.0")]
     [Description("Selectively monitor players looting containers to ensure they don't steal.")]
     public class LooterSpy : RustPlugin
     {
         private const string COMMAND = "lspy";
         private const string PERMISSION_ENABLE_LOOTERSPY = "looterspy.use";
         private static LooterSpy ins;
-        private MonitorConfig monitoredPlayers;
+        private MonitorConfig config;
 
         #region Commands
         [ChatCommand(COMMAND)]
@@ -43,20 +43,20 @@ namespace Oxide.Plugins
                 MonitorTuple requestedMonitor = new MonitorTuple(looterId, player.userID);
                 if (args[0] == "enable")
                 {
-                    if (!monitoredPlayers.looterMonitors.Any(x => x.LooterID == looterId))
+                    if (!config.looterMonitors.Any(x => x.LooterID == looterId))
                     {
-                        monitoredPlayers.looterMonitors.Add(requestedMonitor);
-                        SaveConfig(monitoredPlayers);
+                        config.looterMonitors.Add(requestedMonitor);
+                        SaveConfig(config);
                     }
                     Puts($"LooterSpy enabled for {looterId} by {player.displayName} ({player.userID})");
                     SendMessage(player, $"LooterSpy enabled for {looterId}");
                 }
                 else if (args[0] == "disable")
                 {
-                    if (monitoredPlayers.looterMonitors.Contains(requestedMonitor))
+                    if (config.looterMonitors.Contains(requestedMonitor))
                     {
-                        monitoredPlayers.looterMonitors = monitoredPlayers.looterMonitors.Where(lm => lm != requestedMonitor).ToList();
-                        SaveConfig(monitoredPlayers);
+                        config.looterMonitors = config.looterMonitors.Where(lm => lm != requestedMonitor).ToList();
+                        SaveConfig(config);
                     }
                     Puts($"LooterSpy disabled for {looterId} by {player.displayName} ({player.userID})");
                     SendMessage(player, $"LooterSpy disabled for {looterId}");
@@ -97,7 +97,7 @@ namespace Oxide.Plugins
             }
 
             LoadVariables();
-            if (!monitoredPlayers.looterMonitors.Any(lm => lm.LooterID == looter.userID))
+            if (!config.looterMonitors.Any(lm => lm.LooterID == looter.userID))
             {
                 return;
             }
@@ -147,7 +147,7 @@ namespace Oxide.Plugins
                 }
 
                 GetWatchingModerators(looter.userID).ForEach(m => SendMessage(m,
-                    $"{looter.displayName} ({looter.userID}) started looting {entity.PrefabName} belonging to {ownerinfo}." +
+                    $"{looter.displayName} ({looter.userID}) started looting {entity.PrefabName} belonging to {ownerinfo} at {GetGrid(entity.transform.position, true)}." +
                     $"\n{loot.itemList.Select(i => i.amount).Sum()} Items in container: \n{GetStorageItemsList(loot)}"));
             }
         }
@@ -160,7 +160,7 @@ namespace Oxide.Plugins
             }
 
             LoadVariables();
-            if (!monitoredPlayers.looterMonitors.Any(lm => lm.LooterID == looter.userID))
+            if (!config.looterMonitors.Any(lm => lm.LooterID == looter.userID))
             {
                 return;
             }
@@ -210,7 +210,7 @@ namespace Oxide.Plugins
                 }
 
                 GetWatchingModerators(looter.userID).ForEach(m => SendMessage(m,
-                    $"{looter.displayName} ({looter.userID}) finished looting {entity.PrefabName} belonging to {ownerinfo}." +
+                    $"{looter.displayName} ({looter.userID}) finished looting {entity.PrefabName} belonging to {ownerinfo} at {GetGrid(entity.transform.position, true)}." +
                     $"\n{loot.itemList.Select(i => i.amount).Sum()} Items left in container: \n{GetStorageItemsList(loot)}"));
             }
         }
@@ -264,6 +264,7 @@ namespace Oxide.Plugins
         }
         private class MonitorConfig
         {
+            public int OffsetYGrid { get; set; }
             public List<MonitorTuple> looterMonitors { get; set; }
         }
 
@@ -275,16 +276,17 @@ namespace Oxide.Plugins
 
         protected override void LoadDefaultConfig()
         {
-            MonitorConfig config = new MonitorConfig
+            MonitorConfig newconfig = new MonitorConfig
             {
+                OffsetYGrid = -1,
                 looterMonitors = new List<MonitorTuple>()
             };
-            SaveConfig(config);
+            SaveConfig(newconfig);
         }
 
-        private void LoadConfigVariables() => monitoredPlayers = Config.ReadObject<MonitorConfig>();
+        private void LoadConfigVariables() => config = Config.ReadObject<MonitorConfig>();
 
-        private void SaveConfig(MonitorConfig config) => Config.WriteObject(config, true);
+        private void SaveConfig(MonitorConfig saveconfig) => Config.WriteObject(saveconfig, true);
         #endregion Config
 
         #region Helpers
@@ -312,10 +314,34 @@ namespace Oxide.Plugins
         }
 
         private List<BasePlayer> GetWatchingModerators(ulong looterUserId) =>
-            monitoredPlayers.looterMonitors
+            config.looterMonitors
                 .Where(lm => lm.LooterID == looterUserId)
                 .Select(lm => BasePlayer.FindByID(lm.ModeratorID))
                 .ToList();
+
+        /// <summary>
+        /// Slightly modified Grid(https://umod.org/plugins/grid) by yetzt where can can apply an offset to the grid number, as apparently its sometimes needed
+        /// https://umod.org/community/grid/20658-grid-results-not-correct
+        /// </summary>
+        /// <param name="pos"></param>
+        /// <param name="addVector"></param>
+        /// <returns></returns>
+        string GetGrid(Vector3 pos, bool addVector)
+        {
+
+            char letter = 'A';
+            var x = Mathf.Floor((pos.x + (ConVar.Server.worldsize / 2)) / 146.3f) % 26;
+            var z = (Mathf.Floor(ConVar.Server.worldsize / 146.3f)) - Mathf.Floor((pos.z + (ConVar.Server.worldsize / 2)) / 146.3f);
+            var zoffset = z + config.OffsetYGrid;
+            letter = (char)(((int)letter) + x);
+            var grid = $"{letter}{zoffset}";
+            if (addVector)
+            {
+                grid += $" {pos.ToString().Replace(",", "")}";
+            }
+            return grid;
+
+        }
         #endregion Helpers
     }
 }
