@@ -6,7 +6,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("Looter Spy", "nimro", "1.1.1")]
+    [Info("Looter Spy", "nimro", "1.2.0")]
     [Description("Selectively monitor players looting containers to ensure they don't steal.")]
     public class LooterSpy : RustPlugin
     {
