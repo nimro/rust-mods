@@ -6,7 +6,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("Looter Spy", "nimro", "2.0.0")]
+    [Info("Looter Spy", "nimro", "2.0.1")]
     [Description("Selectively monitor players looting containers to ensure they don't steal.")]
     public class LooterSpy : RustPlugin
     {
@@ -58,8 +58,8 @@ namespace Oxide.Plugins
                         config.looterMonitors.Add(requestedMonitor);
                         SaveConfig(config);
                     }
-                    Puts($"LooterSpy enabled for {looter.displayName} ({looterId}) by {player.displayName} ({player.userID})");
-                    SendMessage(player, $"LooterSpy enabled for {looterId}");
+                    Puts($"LooterSpy enabled for {looter?.displayName} ({looterId}) by {player.displayName} ({player.userID})");
+                    SendMessage(player, $"LooterSpy enabled for {looter?.displayName} ({looterId})");
                 }
                 else if (args[0] == "disable")
                 {
@@ -68,8 +68,8 @@ namespace Oxide.Plugins
                         config.looterMonitors = config.looterMonitors.Where(lm => lm != requestedMonitor).ToList();
                         SaveConfig(config);
                     }
-                    Puts($"LooterSpy disabled for {looter.displayName} ({looterId}) by {player.displayName} ({player.userID})");
-                    SendMessage(player, $"LooterSpy disabled for {looterId}");
+                    Puts($"LooterSpy disabled for {looter?.displayName} ({looterId}) by {player.displayName} ({player.userID})");
+                    SendMessage(player, $"LooterSpy disabled for {looter?.displayName} ({looterId})");
                 }
                 else
                 {
