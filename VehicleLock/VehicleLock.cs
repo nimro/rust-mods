@@ -818,39 +818,7 @@ namespace Oxide.Plugins
         #endregion cooldown
 
         #region helpers
-        private static BasePlayer FindBasePlayer(Vector3 pos)
-        {
-            RaycastHit[] hits = UnityEngine.Physics.SphereCastAll(pos, 4f, Vector3.up);
-            return (from hit in hits where hit.GetEntity()?.GetComponent<BasePlayer>() select hit.GetEntity()?.GetComponent<BasePlayer>()).FirstOrDefault();
-        }
-
         private string Lang(string key, string userId = null, params object[] args) => string.Format(lang.GetMessage(key, this, userId), args);
-
-        private LockType GetLockType(string allowedLockType)
-        {
-            if (allowedLockType.ToLower() == AllowedLockType.keylock.ToString().ToLower())
-                return LockType.Keylock;
-            else
-                return LockType.Codelock;
-        }
-
-        private MiniCopter GetMiniCopter(BasePlayer player)
-        {
-            RaycastHit hit;
-            if (!UnityEngine.Physics.Raycast(player.eyes.HeadRay(), out hit, 5f))
-                return null;
-
-            BaseEntity baseEntity = hit.GetEntity();
-            if (baseEntity is MiniCopter)
-            {
-                return (baseEntity.GetComponentInParent<MiniCopter>());
-            }
-            else
-            {
-                player.ChatMessage(Lang("Not A MiniCopter", player.UserIDString));
-                return null;
-            }
-        }
         #endregion helpers
     }
 }
