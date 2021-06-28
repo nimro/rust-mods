@@ -274,7 +274,7 @@ namespace Oxide.Plugins
                             if (!keyLock.IsLocked())
                                 return null;
 
-                            if (PlayerHasTheKey(player, Convert.ToInt32(vehicle.net.ID)))
+                            if (PlayerHasTheKey(player, keyLock, Convert.ToInt32(vehicle.net.ID)))
                                 return null;
 
                             break;
@@ -339,7 +339,10 @@ namespace Oxide.Plugins
 
                 if (baseLock.IsLocked() && !PlayerIsAuthorized(player, horse))
                 {
-                    player.ChatMessage(Lang("Locked Horse", player.UserIDString));
+                    if (config.SoundEffects)
+                    {
+                        Effect.server.Run(effectDenied, baseLock.transform.position);
+                    }
                     return false;
                 }
             }
@@ -554,7 +557,9 @@ namespace Oxide.Plugins
         {
             BaseEntity ent = GameManager.server.CreateEntity(keyLockPrefab, vehicle.transform.position);
             if (!ent)
+            {
                 return;
+            }
 
             ent.Spawn();
             ent.SetParent(vehicle);
@@ -579,6 +584,7 @@ namespace Oxide.Plugins
             keylock.keyCode = Convert.ToInt32(vehicle.net.ID);
             keylock.OwnerID = player.userID;
             keylock.enableSaving = true;
+            keylock.LockLock(player);
             vehicle.SetSlot(BaseEntity.Slot.Lock, ent);
 
             ent.SendNetworkUpdateImmediate();
@@ -623,21 +629,29 @@ namespace Oxide.Plugins
 
         private object CheckLock(BasePlayer player, KeyLock keyLock, bool forLocking)
         {
-            BaseVehicle vehicle = (keyLock.GetComponentInParent<BaseVehicle>());
+            BaseVehicle vehicle = keyLock.GetComponentInParent<BaseVehicle>();
             if (vehicle == null)
+            {
                 return null;
+            }
 
             if (forLocking)
             {
-                if ((vehicle.HasAnyPassengers()) || (vehicle.HasDriver()))
+                if (vehicle.HasAnyPassengers() || vehicle.HasDriver())
+                {
                     DismountPlayers(vehicle);
+                }
             }
 
-            if (PlayerHasTheKey(player, Convert.ToInt32(vehicle.net.ID)))
+            if (PlayerHasTheKey(player, keyLock, Convert.ToInt32(vehicle.net.ID)))
+            {
                 return null;
+            }
 
             if (config.SoundEffects)
+            {
                 Effect.server.Run(effectDenied, keyLock.transform.position);
+            }
 
             return false;
         }
@@ -705,7 +719,7 @@ namespace Oxide.Plugins
             switch (lockType)
             {
                 case LockType.Keylock:
-                    return (PlayerHasTheKey(player, Convert.ToInt32(vehicle.net.ID)));
+                    return (PlayerHasTheKey(player, vehicle.GetComponentInChildren<KeyLock>(), Convert.ToInt32(vehicle.net.ID)));
 
                 case LockType.Codelock:
                     return (vehicle.GetComponentInChildren<CodeLock>().whitelistPlayers.Contains(player.userID) || (vehicle.GetComponentInChildren<CodeLock>().guestPlayers.Contains(player.userID)));
@@ -714,11 +728,16 @@ namespace Oxide.Plugins
             return true;
         }
 
-        private bool PlayerHasTheKey(BasePlayer player, int keyCode)
+        private bool PlayerHasTheKey(BasePlayer player, KeyLock keyLock, int vehicleID)
         {
+            if (keyLock.OwnerID == player.userID)
+            {
+                return true;
+            }
+
             foreach (Item item in player.inventory.containerMain.itemList)
             {
-                if (IsMatchingKey(item, keyCode))
+                if (IsMatchingKey(item, vehicleID))
                 {
                     return true;
                 }
@@ -726,7 +745,7 @@ namespace Oxide.Plugins
 
             foreach (Item item in player.inventory.containerBelt.itemList)
             {
-                if (IsMatchingKey(item, keyCode))
+                if (IsMatchingKey(item, vehicleID))
                 {
                     return true;
                 }
@@ -735,11 +754,11 @@ namespace Oxide.Plugins
             return false;
         }
 
-        private bool IsMatchingKey(Item item, int keyCode)
+        private bool IsMatchingKey(Item item, int vehicleID)
         {
             if (item.info.itemid == doorkeyItemID)
             {
-                if (item.instanceData.dataInt == keyCode)
+                if (item.instanceData.dataInt == vehicleID)
                 {
                     return true;
                 }
