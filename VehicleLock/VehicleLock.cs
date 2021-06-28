@@ -67,10 +67,12 @@ namespace Oxide.Plugins
                 ["No Permission Code"] = "You are not allowed to add codelocks",
                 ["No Permission Kick"] = "You are not allowed to use the kick command",
                 ["Cannot Afford"] = "You need a lock or the resources to craft one",
-                ["Already Has Lock"] = "This minicopter already has a lock",
-                ["Not A MiniCopter"] = "This entity is not a minicopter",
+                ["Already Has Lock"] = "This vehicle already has a lock",
+                ["Not A MiniCopter"] = "This entity is not a minicopter, scrap heli, or horse",
                 ["Cooldown active"] = "You must wait approximately {0} seconds",
-                ["Cannot have passengers"] = "Passengers must dismount first"
+                ["Cannot have passengers"] = "Passengers must dismount first",
+                ["Horse not claimed"] = "You must claim this horse with a saddle first",
+                ["Locked Horse"] = "You must unlock this horse first"
             }, this);
         }
         #endregion localization
@@ -255,9 +257,9 @@ namespace Oxide.Plugins
             return null;
         }
 
-        object CanLootEntity(BasePlayer player, StorageContainer container)
+        object CanLootEntity(BasePlayer player, BaseEntity entity)
         {
-            BaseVehicle vehicle = container.GetComponentInParent<BaseVehicle>();
+            BaseVehicle vehicle = entity.GetComponentInParent<BaseVehicle>();
             if (vehicle == null)
                 return null;
 
@@ -321,6 +323,28 @@ namespace Oxide.Plugins
                 return vehicle;
             }
 
+            return null;
+        }
+
+        object OnHorseLead(RidableHorse horse, BasePlayer player)
+        {
+            // if it has a lock
+            if (HasLock(horse) != LockType.None)
+            {
+                BaseLock baseLock = horse.GetComponentInChildren<BaseLock>();
+                if (baseLock == null)
+                {
+                    return null;
+                }
+
+                if (baseLock.IsLocked() && !PlayerIsAuthorized(player, horse))
+                {
+                    player.ChatMessage(Lang("Locked Horse", player.UserIDString));
+                    return false;
+                }
+            }
+
+            // default behaviour
             return null;
         }
         #endregion hooks
@@ -401,6 +425,13 @@ namespace Oxide.Plugins
             {
                 RidableHorse horse = entity.GetComponentInChildren<RidableHorse>();
 
+
+                if (horse.IsForSale())
+                {
+                    player.ChatMessage(Lang("Horse not claimed", player.UserIDString));
+                    return;
+                }
+
                 if ((horse.HasAnyPassengers()) || (horse.HasDriver()))
                 {
                     player.ChatMessage(Lang("Cannot have passengers", player.UserIDString));
@@ -436,7 +467,9 @@ namespace Oxide.Plugins
                     cooldownManager.UpdateLastUsedForPlayer(player.UserIDString, lockType);
                 }
                 else
+                {
                     player.ChatMessage(Lang("Cannot Afford", player.UserIDString));
+                }
             }
             else
             {
@@ -686,13 +719,17 @@ namespace Oxide.Plugins
             foreach (Item item in player.inventory.containerMain.itemList)
             {
                 if (IsMatchingKey(item, keyCode))
+                {
                     return true;
+                }
             }
 
             foreach (Item item in player.inventory.containerBelt.itemList)
             {
                 if (IsMatchingKey(item, keyCode))
+                {
                     return true;
+                }
             }
 
             return false;
@@ -703,7 +740,9 @@ namespace Oxide.Plugins
             if (item.info.itemid == doorkeyItemID)
             {
                 if (item.instanceData.dataInt == keyCode)
+                {
                     return true;
+                }
             }
 
             return false;
