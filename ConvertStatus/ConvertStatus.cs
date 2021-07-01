@@ -3,7 +3,9 @@ using System.Collections.Generic;
 
 namespace Oxide.Plugins
 {
-
+    /* 
+     * Extension of "Convert Status" by Orange: https://umod.org/plugins/convert-status
+     */
     [Info("Convert Status", "nimro", "2.0.0")]
     [Description("Change your admin status by a command")]
     public class ConvertStatus : RustPlugin
