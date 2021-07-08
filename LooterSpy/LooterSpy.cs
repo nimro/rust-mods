@@ -6,7 +6,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("Looter Spy", "nimro", "2.0.1")]
+    [Info("Looter Spy", "nimro", "2.0.2")]
     [Description("Selectively monitor players looting containers to ensure they don't steal.")]
     public class LooterSpy : RustPlugin
     {
@@ -123,7 +123,7 @@ namespace Oxide.Plugins
             else if (entity.OwnerID != 0ul && looter.userID != entity.OwnerID) // don't report if owner is zero (world items) or if the player opens their own stuff
             {
                 starts.items.Remove(looter.userID); // make sure there's not already a started item in here
-                starts.items.Add(looter.userID, entity.GetComponent<StorageContainer>().inventory.itemList.ToList());
+                starts.items.Add(looter.userID, ((IItemContainerEntity)entity).inventory.itemList.ToList());
             }
         }
 
@@ -147,11 +147,11 @@ namespace Oxide.Plugins
             }
             else if (entity.OwnerID != 0ul && looter.userID != entity.OwnerID) // don't report if owner is zero (world items) or if the player opens their own stuff
             {
-                if (!starts.items.ContainsKey(looter.userID))
+                if (!starts.items.ContainsKey(looter.userID) || !(entity is IItemContainerEntity))
                 {
                     return;
                 }
-                var loot = entity.GetComponent<StorageContainer>().inventory;
+                var loot = ((IItemContainerEntity)entity).inventory;
 
                 var diff = GetAddedRemoved(starts.items[looter.userID], new List<ItemContainer>() { loot });
                 var added = diff.Item1;

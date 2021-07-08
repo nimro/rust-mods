@@ -55,6 +55,9 @@
     <Reference Include="Oxide.Rust">
       <HintPath>..\..\..\..\..\..\steamcmd\rustsvr\RustDedicated_Data\Managed\Oxide.Rust.dll</HintPath>
     </Reference>
+    <Reference Include="Rust.Global">
+      <HintPath>..\..\..\..\..\..\steamcmd\rustsvr\RustDedicated_Data\Managed\Rust.Global.dll</HintPath>
+    </Reference>
     <Reference Include="Rust.Localization">
       <HintPath>..\..\..\..\..\..\steamcmd\rustsvr\RustDedicated_Data\Managed\Rust.Localization.dll</HintPath>
     </Reference>
