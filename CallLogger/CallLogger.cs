@@ -7,14 +7,15 @@ using System.Text;
 
 namespace Oxide.Plugins
 {
-    [Info("Call Logger", "nimro", "1.0.0")]
+    [Info("Call Logger", "nimro", "1.1.0")]
     [Description("Log call participants and times for admin review")]
     public class CallLogger : CovalencePlugin
     {
-        private const string PERMISSION_VIEW_LOG = "calllogger.use";
+        private const string PERMISSION_VIEW_LOG = "calllogger.view";
+        private const string PERMISSION_WIPE_LOG = "calllogger.wipe";
         private const string COMMAND = "gchq";
         private const string DATAFILE_NAME = "CallLoggerData";
-        private const int COMPARE_HISTORY_DAYS = 3;
+        private const int MAX_VIEW_COUNT = 50;
 
         private CallLog _log;
 
@@ -22,15 +23,32 @@ namespace Oxide.Plugins
         [Command(COMMAND), Permission(PERMISSION_VIEW_LOG)]
         private void PrintLogToConsole(IPlayer player, string command, string[] args)
         {
-            var compareDate = DateTimeOffset.Now.AddDays(COMPARE_HISTORY_DAYS * -1);
-            var sb = new StringBuilder();
-            sb.Append(string.Format("{0,-25} {1,-25}, {2}\n", "Initiator", "Receiver", "Start Time"));
-            sb.Append(string.Format("{0,-25} {1,-25}, {2}\n", "_________", "________", "__________"));
-            foreach (LogEntry logEntry in _log.LogEntries.Where(l => l.CallStartTime > compareDate).OrderByDescending(l => l.CallStartTime))
+            // Wipe command
+            if (args.Length == 1 && args[0] == "wipe")
             {
-                sb.Append(string.Format("{0,-25} {1,-25}, {2:o}\n",
-                    logEntry.InitiatorName.Substring(0, 25),
-                    logEntry.ReceiverName.Substring(0, 25),
+                if (player.HasPermission(PERMISSION_WIPE_LOG))
+                {
+                    _log = new CallLog();
+                    WriteDataFile();
+                    player.Reply("The call log has been wiped.");
+                    Log("The call log has been wiped.");
+                }
+                else
+                {
+                    player.Reply("You do not have permission to wipe the call log.");
+                }
+                return;
+            }
+
+            // View command
+            var sb = new StringBuilder();
+            sb.Append(string.Format("{0,-25} {1,-25} {2}\n", "Initiator", "Receiver", "Start Time"));
+            sb.Append(string.Format("{0,-25} {1,-25} {2}\n", "---------", "--------", "----------"));
+            foreach (LogEntry logEntry in _log.LogEntries.OrderByDescending(l => l.CallStartTime).Take(MAX_VIEW_COUNT))
+            {
+                sb.Append(string.Format("{0,-25} {1,-25} {2:o}\n",
+                    logEntry.InitiatorName,
+                    logEntry.ReceiverName,
                     logEntry.CallStartTime));
             }
             player.Reply(sb.ToString());
@@ -38,35 +56,48 @@ namespace Oxide.Plugins
         #endregion Commands
 
         #region Hooks
-        object OnPhoneCallStart(PhoneController phone, PhoneController otherPhone, BasePlayer player)
+        void OnPhoneAnswered(PhoneController phone, PhoneController otherPhone, BasePlayer player)
         {
-            var initiator = phone.currentPlayer;
-            var receiver = otherPhone.currentPlayer;
+            var initiator = otherPhone.currentPlayer;
+            var receiver = phone.currentPlayer;
 
-            if (initiator is null || receiver is null || _log is null) { return null; }
+            if (initiator == null || receiver == null || _log == null) { return; }
 
             _log.LogEntries.Add(new LogEntry
             {
                 InitiatorID = initiator.userID,
                 InitiatorName = initiator.displayName,
-                ReceiverID = initiator.userID,
-                ReceiverName = initiator.displayName,
+                ReceiverID = receiver.userID,
+                ReceiverName = receiver.displayName,
                 CallStartTime = DateTimeOffset.Now
             });
 
             WriteDataFile();
-
-            return null;
         }
 
-        private void Init()
+        private void Loaded()
         {
             ReadDataFile();
-            if (_log is null)
+            if (_log == null)
             {
                 _log = new CallLog();
                 WriteDataFile();
             }
+
+            if (!permission.PermissionExists(PERMISSION_VIEW_LOG, this))
+            {
+                permission.RegisterPermission(PERMISSION_VIEW_LOG, this);
+            }
+
+            if (!permission.PermissionExists(PERMISSION_WIPE_LOG, this))
+            {
+                permission.RegisterPermission(PERMISSION_WIPE_LOG, this);
+            }
+        }
+
+        private void Unload()
+        {
+            WriteDataFile();
         }
         #endregion Hooks
 
