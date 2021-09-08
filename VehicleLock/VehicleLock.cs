@@ -34,7 +34,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("Vehicle Lock", "nimro", "1.0.0")]
+    [Info("Vehicle Lock", "nimro", "1.1.0")]
     [Description("Gives players the ability to lock vehicles")]
     class VehicleLock : RustPlugin
     {
@@ -46,6 +46,7 @@ namespace Oxide.Plugins
         private const string keylockpermissionName = "vehiclelock.usekeylock";
         private const string codelockpermissionName = "vehiclelock.usecodelock";
         private const string kickpermissionName = "vehiclelock.kick";
+        private const string masterkeypermissionName = "vehiclelock.masterkey";
 
         private const int doorkeyItemID = -1112793865;
         private const int keylockItemID = -850982208;
@@ -163,6 +164,7 @@ namespace Oxide.Plugins
             permission.RegisterPermission(keylockpermissionName, this);
             permission.RegisterPermission(codelockpermissionName, this);
             permission.RegisterPermission(kickpermissionName, this);
+            permission.RegisterPermission(masterkeypermissionName, this);
 
             cooldownManager = new CooldownManager();
         }
@@ -722,7 +724,11 @@ namespace Oxide.Plugins
                     return (PlayerHasTheKey(player, vehicle.GetComponentInChildren<KeyLock>(), Convert.ToInt32(vehicle.net.ID)));
 
                 case LockType.Codelock:
-                    return (vehicle.GetComponentInChildren<CodeLock>().whitelistPlayers.Contains(player.userID) || (vehicle.GetComponentInChildren<CodeLock>().guestPlayers.Contains(player.userID)));
+                    return (
+                        permission.UserHasPermission(player.userID.ToString(), masterkeypermissionName)
+                        || vehicle.GetComponentInChildren<CodeLock>().whitelistPlayers.Contains(player.userID) 
+                        || (vehicle.GetComponentInChildren<CodeLock>().guestPlayers.Contains(player.userID)
+                    ));
             }
 
             return true;
@@ -730,6 +736,11 @@ namespace Oxide.Plugins
 
         private bool PlayerHasTheKey(BasePlayer player, KeyLock keyLock, int vehicleID)
         {
+            if (permission.UserHasPermission(player.userID.ToString(), masterkeypermissionName))
+            {
+                return true;
+            }
+
             if (keyLock.OwnerID == player.userID)
             {
                 return true;
