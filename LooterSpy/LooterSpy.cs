@@ -7,7 +7,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("Looter Spy", "nimro", "2.0.2")]
+    [Info("Looter Spy", "nimro", "2.1.0")]
     [Description("Selectively monitor players looting containers to ensure they don't steal.")]
     public class LooterSpy : CovalencePlugin
     {
@@ -360,10 +360,10 @@ namespace Oxide.Plugins
 
             List<Item> finishing = finish.SelectMany(f => f.itemList).ToList();
 
-            foreach (Item item in starting)
+            foreach (Item item in starting.GroupBy(i => i.info.name).Select(i => i.First()))
             {
-                var startCount = starting.Where(s => s.info.name == item.info.name).Select(s => s.amount).Sum();
-                var finishCount = finishing.Where(f => f.info.name == item.info.name).Select(f => f.amount).Sum();
+                int startCount = starting.Where(s => s.info.name == item.info.name).Select(s => s.amount).Sum();
+                int finishCount = finishing.Where(f => f.info.name == item.info.name).Select(f => f.amount).Sum();
 
                 if (finishCount > startCount)
                 {
@@ -375,7 +375,7 @@ namespace Oxide.Plugins
                 }
             }
 
-            foreach (Item item in finishing.Where(f => !starting.Select(s => s.info.name).Contains(f.info.name)))
+            foreach (Item item in finishing.Where(f => !starting.Select(s => s.info.name).Contains(f.info.name)).GroupBy(i => i.info.name).Select(i => i.First()))
             {
                 var finishCount = finishing.Where(f => f.info.name == item.info.name).Select(f => f.amount).Sum();
                 added.Add(new ItemTotal(item.info.name, item.info.displayName.translated, finishCount));
