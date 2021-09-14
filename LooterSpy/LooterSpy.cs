@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Oxide.Core.Libraries.Covalence;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -8,7 +9,7 @@ namespace Oxide.Plugins
 {
     [Info("Looter Spy", "nimro", "2.0.2")]
     [Description("Selectively monitor players looting containers to ensure they don't steal.")]
-    public class LooterSpy : RustPlugin
+    public class LooterSpy : CovalencePlugin
     {
         private const string COMMAND = "lspy";
         private const string PERMISSION_ENABLE_LOOTERSPY = "looterspy.use";
@@ -24,42 +25,34 @@ namespace Oxide.Plugins
         #endregion Types
 
         #region Commands
-        [ChatCommand(COMMAND)]
-        void cmdChatZone(BasePlayer player, string command, string[] args)
+        [Command(COMMAND), Permission(PERMISSION_ENABLE_LOOTERSPY)]
+        void LooterSpyCommand(IPlayer player, string command, string[] args)
         {
-            if (!HasPermission(player, PERMISSION_ENABLE_LOOTERSPY))
-            {
-                SendMessage(player, "You don't have access to this command");
-                return;
-            }
-
             if (args.Length != 2)
             {
-                SendMessage(player, $"Usage: /{COMMAND} <enable | disable> <player steam id>");
+                player.Reply($"Usage: /{COMMAND} <enable | disable> <player name or steam id>");
                 return;
             }
             else
             {
-                ulong looterId;
-                if (!ulong.TryParse(args[1], out looterId))
+                IPlayer looter = players.FindPlayer(args[1]);
+                if (looter == null)
                 {
-                    SendMessage(player, $"Invalid player Id! Usage: /{COMMAND} <enable | disable> <player steam id>");
+                    player.Reply($"Player '{args[1]} not found.'");
                     return;
                 }
 
-                var looter = BasePlayer.FindByID(looterId);
-
                 LoadVariables();
-                MonitorTuple requestedMonitor = new MonitorTuple(looterId, player.userID);
+                MonitorTuple requestedMonitor = new MonitorTuple(looter.Id, player.Id);
                 if (args[0] == "enable")
                 {
-                    if (!config.looterMonitors.Any(x => x.LooterID == looterId))
+                    if (!config.looterMonitors.Any(x => x.LooterID == looter.Id))
                     {
                         config.looterMonitors.Add(requestedMonitor);
                         SaveConfig(config);
                     }
-                    Puts($"LooterSpy enabled for {looter?.displayName} ({looterId}) by {player.displayName} ({player.userID})");
-                    SendMessage(player, $"LooterSpy enabled for {looter?.displayName} ({looterId})");
+                    Puts($"LooterSpy enabled for {looter.Name} ({looter.Id}) by {player.Name} ({player.Id})");
+                    player.Reply($"LooterSpy enabled for {looter.Name} ({looter.Id})");
                 }
                 else if (args[0] == "disable")
                 {
@@ -68,12 +61,12 @@ namespace Oxide.Plugins
                         config.looterMonitors = config.looterMonitors.Where(lm => lm != requestedMonitor).ToList();
                         SaveConfig(config);
                     }
-                    Puts($"LooterSpy disabled for {looter?.displayName} ({looterId}) by {player.displayName} ({player.userID})");
-                    SendMessage(player, $"LooterSpy disabled for {looter?.displayName} ({looterId})");
+                    Puts($"LooterSpy disabled for {looter.Name} ({looter.Id}) by {player.Name} ({player.Id})");
+                    player.Reply($"LooterSpy disabled for {looter.Name} ({looter.Id})");
                 }
                 else
                 {
-                    SendMessage(player, $"Invalid command! Usage: /{COMMAND} <enable | disable> <player steam id>");
+                    player.Reply($"Invalid command! Usage: /{COMMAND} <enable | disable> <player steam id>");
                     return;
                 }
 
@@ -109,7 +102,7 @@ namespace Oxide.Plugins
             }
 
             LoadVariables();
-            if (!config.looterMonitors.Any(lm => lm.LooterID == looter.userID))
+            if (!config.looterMonitors.Any(lm => lm.LooterID == looter.IPlayer.Id))
             {
                 return;
             }
@@ -120,11 +113,20 @@ namespace Oxide.Plugins
                 // I think this is an oxide bug
                 return;
             }
-            else if (entity.OwnerID != 0ul && looter.userID != entity.OwnerID) // don't report if owner is zero (world items) or if the player opens their own stuff
+            else if (entity.OwnerID == 0ul || looter.userID == entity.OwnerID) // don't report if owner is zero (world items) or if the player opens their own stuff
             {
-                starts.items.Remove(looter.userID); // make sure there's not already a started item in here
-                starts.items.Add(looter.userID, ((IItemContainerEntity)entity).inventory.itemList.ToList());
+                return;
             }
+
+            RelationshipManager.PlayerTeam team;
+            if (RelationshipManager.ServerInstance.playerToTeam.TryGetValue(looter.userID, out team) && team.members.Contains(entity.OwnerID))
+            {
+                // Player is in a team with the owner, don't need to log this
+                return;
+            }
+
+            starts.items.Remove(looter.userID); // make sure there's not already a started item in here
+            starts.items.Add(looter.userID, ((IItemContainerEntity)entity).inventory.itemList.ToList());
         }
 
         void OnLootEntityEnd(BasePlayer looter, BaseCombatEntity entity)
@@ -135,11 +137,11 @@ namespace Oxide.Plugins
             }
 
             LoadVariables();
-            if (!config.looterMonitors.Any(lm => lm.LooterID == looter.userID))
+            if (!config.looterMonitors.Any(lm => lm.LooterID == looter.IPlayer.Id))
             {
                 return;
             }
-            
+
             if (entity is BasePlayer)
             {
                 Puts("OnLootEntityEnd is working for BasePlayers now! Please tell nimro to update LooterSpy");
@@ -162,11 +164,11 @@ namespace Oxide.Plugins
                     return;
                 }
 
-                BasePlayer owner = BasePlayer.FindByID(entity.OwnerID);
+                IPlayer owner = players.FindPlayerById(entity.OwnerID.ToString());
                 string ownerinfo = "";
                 if (owner != null)
                 {
-                    ownerinfo = $"{owner.displayName} ({entity.OwnerID})";
+                    ownerinfo = $"{owner.Name} ({entity.OwnerID})";
                 }
                 else
                 {
@@ -182,7 +184,7 @@ namespace Oxide.Plugins
                 {
                     message += $"\nREMOVED: \n{GetItemsList(removed)}";
                 }
-                GetWatchingModerators(looter.userID).ForEach(m => SendMessage(m, message));
+                GetWatchingModerators(looter.IPlayer.Id).ForEach(m => SendMessage(m, message));
             }
         }
         #endregion Hooks
@@ -192,14 +194,14 @@ namespace Oxide.Plugins
         {
             public MonitorTuple() { }
 
-            public MonitorTuple(ulong looterId, ulong moderatorId)
+            public MonitorTuple(string looterId, string moderatorId)
             {
                 LooterID = looterId;
                 ModeratorID = moderatorId;
             }
 
-            public ulong LooterID { get; set; }
-            public ulong ModeratorID { get; set; }
+            public string LooterID { get; set; }
+            public string ModeratorID { get; set; }
 
             private static bool MTEqualityCheck(MonitorTuple mt1, MonitorTuple mt2)
             {
@@ -303,24 +305,22 @@ namespace Oxide.Plugins
             return sb.ToString();
         }
 
-        private bool IsAdmin(BasePlayer player) => player?.net?.connection?.authLevel > 0;
-
-        private bool HasPermission(BasePlayer player, string permname) => IsAdmin(player) || permission.UserHasPermission(player.UserIDString, permname);
-
-        private void SendMessage(BasePlayer player, string message, params object[] args)
+        private void SendMessage(IPlayer player, string message, params object[] args)
         {
             if (player != null)
             {
                 if (args.Length > 0)
+                {
                     message = string.Format(message, args);
-                SendReply(player, $"{message}");
+                }
+                player.Reply($"{message}");
             }
         }
 
-        private List<BasePlayer> GetWatchingModerators(ulong looterUserId) =>
+        private List<IPlayer> GetWatchingModerators(string looterUserId) =>
             config.looterMonitors
                 .Where(lm => lm.LooterID == looterUserId)
-                .Select(lm => BasePlayer.FindByID(lm.ModeratorID))
+                .Select(lm => players.FindPlayerById(lm.ModeratorID))
                 .ToList();
 
         /// <summary>
