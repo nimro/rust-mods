@@ -282,19 +282,6 @@ namespace Oxide.Plugins
         #endregion Config
 
         #region Helpers
-        private string GetStorageItemsList(ItemContainer container)
-        {
-            return GetItemsList(container.itemList);
-        }
-
-        private string GetItemsList(List<Item> items)
-        {
-            StringBuilder sb = new StringBuilder();
-            items.OrderBy(item => item.info.displayName.translated).ToList()
-                 .ForEach(item => sb.AppendLine($"Item: {item.info.displayName.translated} x{item.amount}"));
-            return sb.ToString();
-        }
-
         private string GetItemsList(List<ItemTotal> items)
         {
             var distinctItems = items.GroupBy(x => new { x.name, x.displayName }, x => x.count, (names, counts) => new ItemTotal(names.name, names.displayName, counts.Sum()));
@@ -313,7 +300,7 @@ namespace Oxide.Plugins
                 {
                     message = string.Format(message, args);
                 }
-                player.Reply($"{message}");
+                player.Message($"{message}");
             }
         }
 
@@ -371,7 +358,7 @@ namespace Oxide.Plugins
             var added = new List<ItemTotal>();
             var removed = new List<ItemTotal>();
 
-            var finishing = finish.SelectMany(f => f.itemList).ToList();
+            List<Item> finishing = finish.SelectMany(f => f.itemList).ToList();
 
             foreach (Item item in starting)
             {
